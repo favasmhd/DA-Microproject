@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import pandas as pd
 from mlxtend.frequent_patterns import apriori, fpgrowth, association_rules
+import matplotlib.pyplot as plt
+import time
+from tkinter import ttk
 
 def browse_file():
     file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
@@ -48,7 +51,7 @@ def display_output(output):
     output_window = tk.Toplevel(root)
     output_window.title("Analysis Output")
     
-    text_widget = tk.Text(output_window, wrap="none", width=100, height=30)
+    text_widget = tk.Text(output_window, wrap="none", width=100, height=30, bg="#282828", fg="#f0f0f0", font=("Helvetica", 12))
     text_widget.pack(side="left", fill="both", expand=True)
     
     scrollbar = tk.Scrollbar(output_window, command=text_widget.yview)
@@ -56,6 +59,64 @@ def display_output(output):
     
     text_widget.config(yscrollcommand=scrollbar.set)
     text_widget.insert(tk.END, output)
+    text_widget.config(state=tk.DISABLED)
+
+def display_csv_data():
+    csv_file = file_entry.get()
+    if not csv_file:
+        messagebox.showwarning("Input Error", "Please select a CSV file.")
+        return
+    
+    data = load_data(csv_file)
+    csv_output_window = tk.Toplevel(root)
+    csv_output_window.title("CSV Data")
+    
+    text_widget = tk.Text(csv_output_window, wrap="none", width=100, height=30, bg="#282828", fg="#f0f0f0", font=("Helvetica", 12))
+    text_widget.pack(side="left", fill="both", expand=True)
+    
+    scrollbar = tk.Scrollbar(csv_output_window, command=text_widget.yview)
+    scrollbar.pack(side="right", fill="y")
+    
+    text_widget.config(yscrollcommand=scrollbar.set)
+    text_widget.insert(tk.END, data.to_string(index=False))
+    text_widget.config(state=tk.DISABLED)
+
+def visualize_data():
+    csv_file = file_entry.get()
+    if not csv_file:
+        messagebox.showwarning("Input Error", "Please select a CSV file.")
+        return
+    
+    data = load_data(csv_file)
+    product_counts = data['Product line'].value_counts()
+    
+    plt.figure(figsize=(10, 5))
+    product_counts.plot(kind='bar', color='#03DAC5')
+    plt.title('Product Line Counts', fontsize=16)
+    plt.xlabel('Product Line', fontsize=12)
+    plt.ylabel('Count', fontsize=12)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+def show_efficiency(apriori_time, fp_growth_time):
+    efficiency_window = tk.Toplevel(root)
+    efficiency_window.title("Algorithm Efficiency")
+    
+    text_widget = tk.Text(efficiency_window, wrap="none", width=50, height=10, bg="#282828", fg="#f0f0f0", font=("Helvetica", 12))
+    text_widget.pack(side="left", fill="both", expand=True)
+    
+    scrollbar = tk.Scrollbar(efficiency_window, command=text_widget.yview)
+    scrollbar.pack(side="right", fill="y")
+    
+    text_widget.config(yscrollcommand=scrollbar.set)
+    text_widget.insert(tk.END, f"Apriori Execution Time: {apriori_time:.4f} seconds\n")
+    text_widget.insert(tk.END, f"FP Growth Execution Time: {fp_growth_time:.4f} seconds\n")
+    
+    if apriori_time < fp_growth_time:
+        text_widget.insert(tk.END, "Apriori is faster than FP Growth.")
+    else:
+        text_widget.insert(tk.END, "FP Growth is faster than Apriori.")
     
     text_widget.config(state=tk.DISABLED)
 
@@ -70,41 +131,73 @@ def run_algorithm():
     try:
         data = load_data(csv_file)
         transactions = preprocess_data(data)
-
+        start_time = time.time()
         if selected_algo == "Apriori":
             frequent_itemsets, rules = run_apriori(transactions, min_support=0.1)
+            apriori_time = time.time() - start_time
+            fp_growth_time = None
         elif selected_algo == "FP Growth":
             frequent_itemsets, rules = run_fp_growth(transactions, min_support=0.1)
-        
+            fp_growth_time = time.time() - start_time
+            apriori_time = None
+
         output = format_output(frequent_itemsets, rules)
         display_output(output)
+        show_efficiency(apriori_time, fp_growth_time)
         
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
+# Main application
 root = tk.Tk()
 root.title("Market Basket Analysis")
+root.geometry("700x400")
+root.configure(bg="#121212")
+root.resizable(False, False)
 
-root.geometry("800x400")
-root.configure(bg="lightblue")
+# Style configuration
+style = ttk.Style()
+style.theme_use("clam")
+style.configure("TButton", padding=10, borderwidth=0, background="#202020", foreground="#e8e8e8", font=("Helvetica", 12))
+style.map("TButton", background=[("active", "#6200EA")])
+style.configure("TRadiobutton", background="#121212", foreground="#f0f0f0", font=("Helvetica", 12))
 
-font_large = ("Arial", 14)
-font_small = ("Arial", 12)
+header_frame = tk.Frame(root, bg="#121212", padx=20, pady=10)
+header_frame.pack(fill=tk.X)
 
-tk.Label(root, text="CSV File:", font=font_large, bg="lightblue").grid(row=0, column=0, padx=10, pady=10, sticky="e")
-file_entry = tk.Entry(root, width=50, font=font_small)
-file_entry.grid(row=0, column=1, padx=10, pady=10)
-browse_button = tk.Button(root, text="Browse", command=browse_file, font=font_small)
-browse_button.grid(row=0, column=2, padx=10, pady=10)
+tk.Label(header_frame, text="Market Basket Analysis", font=("Helvetica", 18, "bold"), bg="#121212", fg="white").pack()
 
+input_frame = tk.Frame(root, bg="#121212", padx=20, pady=20)
+input_frame.pack(pady=10)
+
+tk.Label(input_frame, text="CSV File:", font=("Helvetica", 12), bg="#121212", fg="#f0f0f0").grid(row=0, column=0, sticky="w")
+file_entry = ttk.Entry(input_frame, width=40, font=("Helvetica", 12))
+file_entry.grid(row=0, column=1, padx=10)
+browse_button = ttk.Button(input_frame, text="Browse", command=browse_file)
+browse_button.grid(row=0, column=2)
+
+algo_frame = tk.Frame(root, bg="#121212", padx=20, pady=10)
+algo_frame.pack(pady=10)
+
+tk.Label(algo_frame, text="Select Algorithm:", font=("Helvetica", 12), bg="#121212", fg="#f0f0f0").pack(anchor="w")
 algo_var = tk.StringVar(value="Apriori")
-tk.Label(root, text="Select Algorithm:", font=font_large, bg="lightblue").grid(row=1, column=0, padx=10, pady=10, sticky="e")
-apriori_radio = tk.Radiobutton(root, text="Apriori", variable=algo_var, value="Apriori", font=font_small, bg="lightblue")
-apriori_radio.grid(row=1, column=1, sticky="w")
-fp_growth_radio = tk.Radiobutton(root, text="FP Growth", variable=algo_var, value="FP Growth", font=font_small, bg="lightblue")
-fp_growth_radio.grid(row=2, column=1, sticky="w")
 
-output_button = tk.Button(root, text="Get Output", command=run_algorithm, font=font_large)
-output_button.grid(row=3, column=1, pady=30)
+apriori_radio = ttk.Radiobutton(algo_frame, text="Apriori", variable=algo_var, value="Apriori", style="TRadiobutton")
+apriori_radio.pack(anchor="w")
+
+fp_growth_radio = ttk.Radiobutton(algo_frame, text="FP Growth", variable=algo_var, value="FP Growth", style="TRadiobutton")
+fp_growth_radio.pack(anchor="w")
+
+button_frame = tk.Frame(root, bg="#121212", padx=20, pady=10)
+button_frame.pack(pady=10)
+
+visualize_button = ttk.Button(button_frame, text="Visualize Data", command=visualize_data)
+visualize_button.grid(row=0, column=2, padx=10)
+
+display_button = ttk.Button(button_frame, text="Display CSV Data", command=display_csv_data)
+display_button.grid(row=0, column=0, padx=10)
+
+analyze_button = ttk.Button(button_frame, text="Run Algorithm", command=run_algorithm)
+analyze_button.grid(row=0, column=1, padx=10)
 
 root.mainloop()
