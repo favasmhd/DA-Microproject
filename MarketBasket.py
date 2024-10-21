@@ -164,11 +164,18 @@ def run_algorithm():
         transactions = preprocess_data(data)
         
         start_time = time.time()
+        frequent_itemsets, rules = run_apriori(transactions, min_support=0.03)
+        apriori_time = time.time() - start_time
+        start_time = time.time()
+        frequent_itemsets, rules = run_fp_growth(transactions, min_support=0.03)
+        fp_growth_time = time.time() - start_time
+
+        start_time = time.time()
         if selected_algo == "Apriori":
-            frequent_itemsets, rules = run_apriori(transactions, min_support=0.1)
+            frequent_itemsets, rules = run_apriori(transactions, min_support=0.03)
             apriori_time = time.time() - start_time
         elif selected_algo == "FP Growth":
-            frequent_itemsets, rules = run_fp_growth(transactions, min_support=0.1)
+            frequent_itemsets, rules = run_fp_growth(transactions, min_support=0.03)
             fp_growth_time = time.time() - start_time
 
         output = format_output(frequent_itemsets, rules)
